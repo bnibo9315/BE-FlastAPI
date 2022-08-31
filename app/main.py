@@ -1,14 +1,17 @@
-from __init__ import responseJson,title
+from __init__ import responseJson,app
+import __init__
 from typing import Union
 import uvicorn
-from fastapi import FastAPI
-app = FastAPI(title)
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 
-@app.get("/")
-def index():
-    return responseJson("Ok")
+@app.post("/",tags=["Index page"],responses= __init__.responsesDetail)
+def index(token: str = Depends(oauth2_scheme)):
+    return responseJson( True, token)
 
 
 
