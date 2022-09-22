@@ -95,12 +95,7 @@ app = FastAPI(title=title, version=version, docs_url=None,
               description=description, redoc_url=redoc_url,)
 
 
-def responseJson(status: bool = False, message: str = None):
-    response = {
-        'status': True,
-        'message': message
-    }
-    return response
+
 
 
 responsesDetail = {
