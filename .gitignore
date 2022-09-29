@@ -1,2 +1,7 @@
 __pycache__
 app/__pycache__
+app/model/__pycache__
+app/database/.env
+app/model/.env
+app/model/controller/.env
+app/endpoint/.env

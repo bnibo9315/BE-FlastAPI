@@ -1,13 +1,14 @@
-from ensurepip import version
 from pydoc import text
-from fastapi import FastAPI, HTTPException
-import fastapi
+from fastapi import FastAPI, HTTPException, Request, status
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.responses import PlainTextResponse
-
+from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
+    get_redoc_html,
 )
 title = 'FastAPI - Backend Dev'
 version = '0.1.1'
@@ -92,10 +93,7 @@ description = """
 """
 
 app = FastAPI(title=title, version=version, docs_url=None,
-              description=description, redoc_url=redoc_url,)
-
-
-
+              description=description, redoc_url=None,)
 
 
 responsesDetail = {
@@ -109,18 +107,32 @@ responsesDetail = {
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request, exc):
     if exc.status_code == 405:
-        response = fastapi.responses.JSONResponse({
+        response = JSONResponse({
             'status': False,
             'message': "Method not allowed. Please try with another method or read the documentation api",
             'code': 405
         })
     else:
-        response = fastapi.responses.JSONResponse({
-            'status': False,
-            'message': str(exc.detail) + ". Please read the documentation api",
-            'code': exc.status_code
-        })
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content=jsonable_encoder({
+                'status': False,
+                'message': str(exc.detail) + ". Please read the documentation api",
+                'code': exc.status_code
+            }))
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"status": False,
+                                  "message": "Action false. Check data form ",
+                                  "code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                  "detail": exc.errors()}),
+    )
+
 
 @app.get("/documents", include_in_schema=False)
 async def custom_swagger_ui_html():
@@ -130,3 +142,12 @@ async def custom_swagger_ui_html():
         oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
         swagger_js_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.14.0/swagger-ui-bundle.js",
         swagger_css_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.14.0/swagger-ui.css")
+
+
+@app.get("/docsV2", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title,
+        redoc_js_url="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js",
+    )
