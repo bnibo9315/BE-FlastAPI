@@ -54,8 +54,8 @@ def userResponse(obj, message : str) -> dict:
 
 def ErrorResponseModel(code, error):
     return JSONResponse(
-            status_code=404,
-            content=jsonable_encoder({"status": False, "code": code, "message": error}))
+            status_code=code,
+            content=jsonable_encoder({"status": False, "code": code, "message": error }))
 
 responsejsonCreateUser = {
     200: {
@@ -133,6 +133,38 @@ responsejsonLogin = {
                     "code": 200,
                     "data":  {
                         "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJhY2MiOiJhZG1pbiIsImV4cCI6MTY2NDQyMTM3OX0.Sh_CjPLfkAIXhR65Q3DL-czoXiDpHvJRgQR7jBS79NCG3xbban0e_mcCHxk-2n-YkMh9VF9esYGto1L1PRbNOg"
+                    }
+                }
+            }
+        },
+    },
+    422: {
+        "description": "Validation Error",
+        "content": {
+            "application/json": {
+                "example": {
+                    "status": False,
+                    "message": "Action false. Check data form ",
+                    "code": 422,
+                    "detail": "abcxyz",
+                }
+            }
+        },
+    },
+}
+
+responsejsonAction = {
+    200: {
+        "description": "Login controller in website",
+        "content": {
+            "application/json": {
+                "example": {
+                    "status": True,
+                    "message": "Create user successfully",
+                    "code": 200,
+                    "data":  {
+                        "data" : "Action successfully",
+                        "_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJhY2MiOiJhZG1pbiIsImV4cCI6MTY2NDQyMTM3OX0.Sh_CjPLfkAIXhR65Q3DL-czoXiDpHvJRgQR7jBS79NCG3xbban0e_mcCHxk-2n-YkMh9VF9esYGto1L1PRbNOg"
                     }
                 }
             }

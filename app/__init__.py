@@ -49,7 +49,7 @@ description = """
 
 - 🔭 I’m currently working on Hekate Artificial Intelligence company
 
-- 🌱 I’m AI Developer and Backend Developer ( sometime Fullstack Developer 😚😚😚😚😚 ) 
+- 🌱 I’m AI Developer and Backend Developer ( sometime Fullstack Developer 😚😚😚😚😚 )
 
 - 👯 I have strengths in Python and PHP languages
 
@@ -107,11 +107,13 @@ responsesDetail = {
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request, exc):
     if exc.status_code == 405:
-        response = JSONResponse({
-            'status': False,
-            'message': "Method not allowed. Please try with another method or read the documentation api",
-            'code': 405
-        })
+        response = JSONResponse(
+            status_code=405,
+            content=jsonable_encoder({
+                'status': False,
+                'message': "Method not allowed. Please try with another method or read the documentation api",
+                'code': 405
+            }))
     else:
         response = JSONResponse(
             status_code=exc.status_code,
@@ -123,7 +125,7 @@ async def http_exception_handler(request, exc):
     return response
 
 
-@app.exception_handler(RequestValidationError)
+@ app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -134,7 +136,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-@app.get("/documents", include_in_schema=False)
+@ app.get("/documents", include_in_schema=False)
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
@@ -144,7 +146,7 @@ async def custom_swagger_ui_html():
         swagger_css_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.14.0/swagger-ui.css")
 
 
-@app.get("/docsV2", include_in_schema=False)
+@ app.get("/docsV2", include_in_schema=False)
 async def redoc_html():
     return get_redoc_html(
         openapi_url=app.openapi_url,

@@ -2,20 +2,21 @@ from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr
 from typing import Union
 from bson.objectid import ObjectId
+from sqlalchemy import delete
 from model.response import userResponse, ErrorResponseModel
 from passlib.context import CryptContext
 from model.controller.logincontroller import verify_password
+from database.connect import connectCollection
+
 
 class InforUser (BaseModel):
-    id: int = Field(...,
+    id: str = Field(...,
                     title="Identifier of the user in the system by random numbers.")
-    token: Union[str, None] = None
 
     class Config:
         schema_extra = {
             "example": {
                 "id": "5fec2c0b348df9f22156cc07",
-                "token": "5fec2c0b348df9f22156cc07"
             }
         }
 
@@ -57,6 +58,7 @@ class UpdateUser(BaseModel):
             }
         }
 
+
 class ChangePassword(BaseModel):
     passold: str = Field(..., title="Password old to login account")
     passnew: str = Field(..., title="Password new to login account")
@@ -69,14 +71,27 @@ class ChangePassword(BaseModel):
             }
         }
 
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-async def getUser(user_colletction, id: str) -> dict:
-    data_response = None
+
+async def findID(id: str):
+    data_find = None
     if ObjectId.is_valid(id):
-        data_response = user_colletction.find_one(
+        userCollection = await connectCollection("user")
+        data_find = userCollection.find_one(
             {"_id": ObjectId(id)})
-    if data_response is not None:
+    if data_find is not None:
+        return True
+    return False
+
+
+async def getUser(id: str, token: str) -> dict:
+    data_response = await findID(id)
+    if data_response:
+        userCollection = await connectCollection("user")
+        data_response = userCollection.find_one(
+            {"_id": ObjectId(id)})
         message = "Get user information success"
         data = {
             "username": data_response["username"],
@@ -85,77 +100,103 @@ async def getUser(user_colletction, id: str) -> dict:
             "create": data_response["create"],
             "modified": data_response["modified"],
             "permisson": data_response["permisson"],
+            "_token": token
         }
         return userResponse(data, message)
-    message = "ID not found"
+    message = ({"data": "ID not found", "token": token})
     return ErrorResponseModel(404, message)
 
 
-async def createUser(user_colletction, data: dict) -> dict:
+async def createUser(data: dict, token: str) -> dict:
     dataCreate = {
         "_id": ObjectId(),
         "create": datetime.now(),
         "modified": datetime.now(),
     }
-    check_username = user_colletction.count({"username": data["username"]})
+    userCollection = await connectCollection("user")
 
-    if check_username == 0:
+    check_username = userCollection.find_one({"username": data["username"]})
+
+    if check_username is None:
         data.update(dataCreate)
         data["password"] = pwd_context.hash(data["password"])
-        userCreated = user_colletction.insert_one(data)
+        userCreated = userCollection.insert_one(data)
         if userCreated:
             message = "Create user information success"
             dataCreate["_id"] = str(dataCreate["_id"])
+            dataCreate.update({
+                "_token": token
+            })
             return userResponse(dataCreate, message)
         else:
-            message = "Create user information false"
+            message = (
+                {"data": "Create user information false", "_token": token})
     else:
-        message = "Username already exists"
+        message = ({"data": "Username already exists", "_token": token})
     return ErrorResponseModel(404, message)
 
 
-async def updateUser(user_colletction, data: dict,id) -> dict:
+async def updateUser(data: dict, id, token: str) -> dict:
     dataUpdate = {
         "modified": datetime.now()
     }
-    find_id = None
-    if ObjectId.is_valid(id):
-        find_id = user_colletction.find_one({"_id": ObjectId(id)})
-    if find_id is not None:
+    find_id = await findID(id)
+    if find_id:
         data.update(dataUpdate)
-        userCreated =  user_colletction.update_one({"_id": ObjectId(id)}, {"$set": data})
-        if userCreated:
-            message = "Update user information success"
-            dataUpdate.update({"_id": id})
-            return userResponse(dataUpdate, message)
+        userCollection = await connectCollection("user")
+        check_username = userCollection.count({"username": data["username"]})
+        if check_username == 0:
+            userCreated = userCollection.update_one(
+                {"_id": ObjectId(id)}, {"$set": data})
+            if userCreated:
+                message = "Update user information success"
+                dataUpdate.update({"_id": id, "_token": token})
+                return userResponse(dataUpdate, message)
         else:
-            message = "Update user information false"
+            message = ({"data": "Username already exists", "_token": token})
 
-    message = "ID not found"
+    else:
+        message = ({"data": "ID not found", "token": token})
     return ErrorResponseModel(404, message)
 
-async def changePassword(user_colletction, data: dict,id) -> dict:
+
+async def changePassword(data: dict, id, token: str) -> dict:
     dataUpdate = {
         "password": pwd_context.hash(data["passnew"]),
         "modified": datetime.now()
     }
-    find_id = None
-    if ObjectId.is_valid(id):
-        find_id = user_colletction.find_one({"_id": ObjectId(id)})
-        message = "ID not found"
-    if find_id is not None:
-        check_password = verify_password(data["passold"], find_id["password"])
-        if check_password :
-            data.update(dataUpdate)
-            userCreated =  user_colletction.update_one({"_id": ObjectId(id)}, {"$set": data})
+    find_id = await findID(id)
+    if find_id:
+        userCollection = await connectCollection("user")
+        check_id = userCollection.find_one({"_id": ObjectId(id)})
+        check_password = verify_password(data["passold"], check_id["password"])
+        if check_password:
+            userCollection = await connectCollection("user")
+            userCreated = userCollection.update_one(
+                {"_id": ObjectId(id)}, {"$set": dataUpdate})
             if userCreated:
                 message = "Update user information success"
-                dataUpdate.update({"_id": id})
+                dataUpdate.update({"_id": id, "_token": token})
                 dataUpdate.pop("password")
                 return userResponse(dataUpdate, message)
             else:
                 message = "Update user information false"
         else:
             message = "Password old is incorrect"
+    else:
+        message = ({"data": "ID not found", "token": token})
+    return ErrorResponseModel(404, message)
 
+async def deleteUser(data: dict, token: str) -> dict:
+    data_response = await findID(data["id"])
+    if data_response:
+        userCollection = await connectCollection("user")
+        data_response = userCollection.delete_one(
+            {"_id": ObjectId(data["id"])})
+        message = "Delete user success"
+        data = {
+            "_token": token
+        }
+        return userResponse(data, message)
+    message = ({"data": "ID not found", "token": token})
     return ErrorResponseModel(404, message)
